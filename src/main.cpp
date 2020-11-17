@@ -10,17 +10,17 @@ char PASS[] = secret_pass;
 const char *fb_host = FB_HOST;
 const char *fb_auth = FB_AUTH;
 int led = 5;
-int dpin = 2;
+int dhtpin = 2;
 String fireStatus = "";
 
-DHT dht(dpin, DHT11);
+DHT dht(dhtpin, DHT11);
 
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
   dht.begin();
   pinMode(led, OUTPUT);
-  pinMode(dpin, INPUT);
+  pinMode(dhtpin, INPUT);
   if (WiFi.status() != WL_CONNECTED)
   {
     Serial.println("Attempting to connect");
@@ -34,11 +34,20 @@ void setup() {
   }
   Firebase.begin(fb_host, fb_auth);
   Firebase.setString("LED_stats", "OFF");
+  if(Firebase.success())
+  {
+    Serial.println("LED Turned OFF Successfully.");
+  }
+  else
+  {
+    Serial.println("Error while writing to FireBase RTDB");
+  }
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
+  // Get status of LED from the Firebase Database on the cloud.
   fireStatus = Firebase.getString("LED_stats");
+  // Perform appropriate actions.
   if (fireStatus == "ON")
   {
     Serial.println("LED ON");
@@ -53,13 +62,25 @@ void loop() {
   {
     Serial.println("Command Error!! Please send \"ON\" or \"OFF\"");
   }
-
+  //read data from the dht sensor.
   float t = dht.readTemperature();
-
+  //Check if sensor data is NAN, if not sensor isn't working, print appropriate text.
   if(isnan(t))
   {
     Serial.println("Failed to read from the DHT sensor");
     return;
+  }
+
+  //Send data to Firebase Database on the cloud.
+  Firebase.setFloat("Temperature", t);
+  //Check if it was successfully sent, send appropriate feedback text.
+  if (Firebase.success())
+  {
+    Serial.println("Successfully uploaded Temperature data.");
+  }
+  else
+  {
+    Serial.println("Error in writing Temperature Data to Firebase RTDB.");
   }
   
 }
